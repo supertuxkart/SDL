@@ -28,6 +28,7 @@
 #endif
 
 #define SDL_GetScreenKeyboardHeight SDL_GetScreenKeyboardHeight_REAL
+#define SDL_GetMovedHeightByScreenKeyboard SDL_GetMovedHeightByScreenKeyboard_REAL
 
 #define SDL_SetError SDL_SetError_REAL
 #define SDL_Log SDL_Log_REAL
