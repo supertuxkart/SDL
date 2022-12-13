@@ -747,7 +747,7 @@ JNIEXPORT int JNICALL SDL_JAVA_INTERFACE(nativeRunMain)(JNIEnv *env, jclass cls,
     Android_JNI_SetEnv(env);
 
     library_file = (*env)->GetStringUTFChars(env, library, NULL);
-    library_handle = dlopen(library_file, RTLD_GLOBAL);
+    library_handle = dlopen(library_file, RTLD_NOW | RTLD_LOCAL);
 
     if (library_handle == NULL) {
         /* When deploying android app bundle format uncompressed native libs may not extract from apk to filesystem.
@@ -755,7 +755,7 @@ JNIEXPORT int JNICALL SDL_JAVA_INTERFACE(nativeRunMain)(JNIEnv *env, jclass cls,
         const char *library_name = SDL_strrchr(library_file, '/');
         if (library_name && *library_name) {
             library_name += 1;
-            library_handle = dlopen(library_name, RTLD_GLOBAL);
+            library_handle = dlopen(library_name, RTLD_NOW | RTLD_LOCAL);
         }
     }
 
