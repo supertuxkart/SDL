@@ -201,40 +201,69 @@ static SDL_Scancode button_to_scancode(int button)
     return SDL_SCANCODE_UNKNOWN;
 }
 
-int Android_OnPadDown(int device_id, int keycode)
+static void STK_JoystickScanCode(int instance_id, Uint8 state, int scancode)
 {
-    SDL_joylist_item *item;
+    SDL_Event event;
+    event.type = state == SDL_PRESSED ? SDL_JOYBUTTONDOWN : SDL_JOYBUTTONUP;
+    event.jbutton.type = event.type;
+    event.jbutton.timestamp = 0;
+    event.jbutton.which = instance_id;
+    // 32 is max button in STK
+    event.jbutton.button = scancode + 32;
+    event.jbutton.state = state;
+    SDL_PushEvent(&event);
+}
+
+int Android_OnPadDown(int device_id, int keycode, int scan_code, int repeat_count)
+{
+    SDL_LockJoysticks();
+    SDL_joylist_item *item = JoystickByDeviceId(device_id);
     int button = keycode_to_SDL(keycode);
-    if (button >= 0) {
-        SDL_LockJoysticks();
-        item = JoystickByDeviceId(device_id);
-        if (item && item->joystick) {
+
+    if (item && item->joystick)
+    {
+        if (button >= 0)
             SDL_PrivateJoystickButton(item->joystick, button, SDL_PRESSED);
-        } else {
-            SDL_SendKeyboardKey(SDL_PRESSED, button_to_scancode(button));
-        }
+        // Only send first button event
+        else if (repeat_count == 0)
+            STK_JoystickScanCode(item->joystick->instance_id, SDL_PRESSED, scan_code);
         SDL_UnlockJoysticks();
         return 0;
     }
+    else if (button >= 0)
+    {
+        SDL_UnlockJoysticks();
+        // DPad goes here because we don't add any input device with name contains keyboard
+        SDL_SendKeyboardKey(SDL_PRESSED, button_to_scancode(button));
+        return 0;
+    }
+    SDL_UnlockJoysticks();
 
     return -1;
 }
 
-int Android_OnPadUp(int device_id, int keycode)
+int Android_OnPadUp(int device_id, int keycode, int scan_code)
 {
-    SDL_joylist_item *item;
+    SDL_LockJoysticks();
+    SDL_joylist_item *item = JoystickByDeviceId(device_id);
     int button = keycode_to_SDL(keycode);
-    if (button >= 0) {
-        SDL_LockJoysticks();
-        item = JoystickByDeviceId(device_id);
-        if (item && item->joystick) {
+
+    if (item && item->joystick)
+    {
+        if (button >= 0)
             SDL_PrivateJoystickButton(item->joystick, button, SDL_RELEASED);
-        } else {
-            SDL_SendKeyboardKey(SDL_RELEASED, button_to_scancode(button));
-        }
+        else
+            STK_JoystickScanCode(item->joystick->instance_id, SDL_RELEASED, scan_code);
         SDL_UnlockJoysticks();
         return 0;
     }
+    else if (button >= 0)
+    {
+        SDL_UnlockJoysticks();
+        SDL_SendKeyboardKey(SDL_RELEASED, button_to_scancode(button));
+        return 0;
+    }
+    SDL_UnlockJoysticks();
 
     return -1;
 }
