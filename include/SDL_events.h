@@ -384,7 +384,11 @@ typedef struct SDL_JoyButtonEvent
     Uint32 type;        /**< ::SDL_JOYBUTTONDOWN or ::SDL_JOYBUTTONUP */
     Uint32 timestamp;   /**< In milliseconds, populated using SDL_GetTicks() */
     SDL_JoystickID which; /**< The joystick instance id */
-    Uint8 button;       /**< The joystick button index */
+#if defined(__ANDROID__)
+    int button;         /**< The joystick button index (STK changed it to 32bit int for using it with scan code for android)*/
+#else
+    Uint8 button;
+#endif
     Uint8 state;        /**< ::SDL_PRESSED or ::SDL_RELEASED */
     Uint8 padding1;
     Uint8 padding2;
