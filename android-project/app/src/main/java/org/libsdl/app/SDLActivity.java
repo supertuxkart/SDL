@@ -316,6 +316,25 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         return new SDLSurface(context);
     }
 
+    // STK addition
+    public static void moveView(int height)
+    {
+        if (mSurface == null)
+            return;
+        mSurface.setTranslationY(height);
+    }
+
+    public static void reFocusAfterSTKEditText()
+    {
+        if (mSurface == null)
+            return;
+        mSurface.setFocusable(true);
+        mSurface.setFocusableInTouchMode(true);
+        mSurface.requestFocus();
+        mSurface.setOnKeyListener(mSurface);
+        mSurface.setOnTouchListener(mSurface);
+    }
+
     // Setup
     @Override
     protected void onCreate(Bundle savedInstanceState) {
