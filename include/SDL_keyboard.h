@@ -333,6 +333,13 @@ extern DECLSPEC void SDLCALL SDL_SetTextInputRect(const SDL_Rect *rect);
 extern DECLSPEC SDL_bool SDLCALL SDL_HasScreenKeyboardSupport(void);
 
 /**
+ *  \brief Returns the screen keyboard height (if opened).
+ *
+ *  \sa SDL_IsScreenKeyboardShown()
+ */
+extern DECLSPEC int SDLCALL SDL_GetScreenKeyboardHeight(void);
+
+/**
  * Check whether the screen keyboard is shown for given window.
  *
  * \param window the window for which screen keyboard should be queried

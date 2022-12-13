@@ -287,6 +287,7 @@ SDL_HideHomeIndicatorHintChanged(void *userdata, const char *name, const char *o
 
     textField.hidden = YES;
     keyboardVisible = NO;
+    keyboardHeight = 0;
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
 #if !TARGET_OS_TV
@@ -607,6 +608,17 @@ SDL_bool UIKit_IsScreenKeyboardShown(_THIS, SDL_Window *window)
             return vc.keyboardVisible;
         }
         return SDL_FALSE;
+    }
+}
+
+int UIKit_GetScreenKeyboardHeight(_THIS, SDL_Window *window)
+{
+    @autoreleasepool {
+        SDL_uikitviewcontroller *vc = GetWindowViewController(window);
+        if (vc != nil) {
+            return vc.keyboardHeight;
+        }
+        return 0;
     }
 }
 
