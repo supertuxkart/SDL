@@ -328,6 +328,7 @@ struct SDL_VideoDevice
     /* Screen keyboard */
     SDL_bool (*HasScreenKeyboardSupport)(_THIS);
     int (*GetScreenKeyboardHeight)(_THIS, SDL_Window *window);
+    int (*GetMovedHeightByScreenKeyboard)(_THIS, SDL_Window *window);
     void (*ShowScreenKeyboard)(_THIS, SDL_Window *window);
     void (*HideScreenKeyboard)(_THIS, SDL_Window *window);
     SDL_bool (*IsScreenKeyboardShown)(_THIS, SDL_Window *window);

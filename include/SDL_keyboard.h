@@ -340,6 +340,14 @@ extern DECLSPEC SDL_bool SDLCALL SDL_HasScreenKeyboardSupport(void);
 extern DECLSPEC int SDLCALL SDL_GetScreenKeyboardHeight(void);
 
 /**
+ *  \brief Returns the moved height by screen keyboard in current window based on SDL_SetTextInputRect.
+ *
+ *  \sa SDL_IsScreenKeyboardShown()
+ *  \sa SDL_SetTextInputRect()
+ */
+extern DECLSPEC int SDLCALL SDL_GetMovedHeightByScreenKeyboard(void);
+
+/**
  * Check whether the screen keyboard is shown for given window.
  *
  * \param window the window for which screen keyboard should be queried
