@@ -46,6 +46,10 @@ const char* defaultPaths[] = {
  * proofing. */
 #define DEFAULT_HANDLE RTLD_DEFAULT
 
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
+VkInstance                                  instance,
+const char*                                 pName);
+
 int UIKit_Vulkan_LoadLibrary(_THIS, const char *path)
 {
     VkExtensionProperties *extensions = NULL;
@@ -53,66 +57,12 @@ int UIKit_Vulkan_LoadLibrary(_THIS, const char *path)
     SDL_bool hasSurfaceExtension = SDL_FALSE;
     SDL_bool hasMetalSurfaceExtension = SDL_FALSE;
     SDL_bool hasIOSSurfaceExtension = SDL_FALSE;
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = NULL;
 
     if (_this->vulkan_config.loader_handle) {
         return SDL_SetError("Vulkan Portability library is already loaded.");
     }
 
-    /* Load the Vulkan loader library */
-    if (!path) {
-        path = SDL_getenv("SDL_VULKAN_LIBRARY");
-    }
-
-    if (!path) {
-        /* Handle the case where Vulkan Portability is linked statically. */
-        vkGetInstanceProcAddr =
-        (PFN_vkGetInstanceProcAddr)dlsym(DEFAULT_HANDLE,
-                                         "vkGetInstanceProcAddr");
-    }
-
-    if (vkGetInstanceProcAddr) {
-        _this->vulkan_config.loader_handle = DEFAULT_HANDLE;
-    } else {
-        const char** paths;
-        const char *foundPath = NULL;
-        int numPaths;
-        int i;
-
-        if (path) {
-            paths = &path;
-            numPaths = 1;
-        } else {
-            /* Look for the .dylib packaged with the application instead. */
-            paths = defaultPaths;
-            numPaths = SDL_arraysize(defaultPaths);
-        }
-
-        for (i = 0; i < numPaths && _this->vulkan_config.loader_handle == NULL; i++) {
-            foundPath = paths[i];
-            _this->vulkan_config.loader_handle = SDL_LoadObject(foundPath);
-        }
-
-        if (_this->vulkan_config.loader_handle == NULL) {
-            return SDL_SetError("Failed to load Vulkan Portability library");
-        }
-
-        SDL_strlcpy(_this->vulkan_config.loader_path, path,
-                    SDL_arraysize(_this->vulkan_config.loader_path));
-        vkGetInstanceProcAddr =
-            (PFN_vkGetInstanceProcAddr)SDL_LoadFunction(
-                                    _this->vulkan_config.loader_handle,
-                                    "vkGetInstanceProcAddr");
-    }
-
-    if (!vkGetInstanceProcAddr) {
-        SDL_SetError("Failed to find %s in either executable or %s: %s",
-                     "vkGetInstanceProcAddr",
-                     "linked Vulkan Portability library",
-                     (const char *) dlerror());
-        goto fail;
-    }
-
+    _this->vulkan_config.loader_handle = DEFAULT_HANDLE;
     _this->vulkan_config.vkGetInstanceProcAddr = (void *)vkGetInstanceProcAddr;
     _this->vulkan_config.vkEnumerateInstanceExtensionProperties =
         (void *)((PFN_vkGetInstanceProcAddr)_this->vulkan_config.vkGetInstanceProcAddr)(
