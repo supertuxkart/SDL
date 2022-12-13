@@ -85,6 +85,8 @@ SDL_DYNAPI_PROC(int,SDL_AndroidGetExternalStorageState,(void),(),return)
 SDL_DYNAPI_PROC(const char*,SDL_AndroidGetExternalStoragePath,(void),(),return)
 #endif
 
+SDL_DYNAPI_PROC(int,SDL_GetScreenKeyboardHeight,(void),(),return)
+
 SDL_DYNAPI_PROC(int,SDL_Init,(Uint32 a),(a),return)
 SDL_DYNAPI_PROC(int,SDL_InitSubSystem,(Uint32 a),(a),return)
 SDL_DYNAPI_PROC(void,SDL_QuitSubSystem,(Uint32 a),(a),)

@@ -27,6 +27,8 @@
 #error You should not be here.
 #endif
 
+#define SDL_GetScreenKeyboardHeight SDL_GetScreenKeyboardHeight_REAL
+
 #define SDL_SetError SDL_SetError_REAL
 #define SDL_Log SDL_Log_REAL
 #define SDL_LogVerbose SDL_LogVerbose_REAL

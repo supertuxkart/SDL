@@ -87,6 +87,7 @@
 @end
 
 #ifdef SDL_IPHONE_KEYBOARD
+int UIKit_GetScreenKeyboardHeight(_THIS, SDL_Window *window);
 SDL_bool UIKit_HasScreenKeyboardSupport(_THIS);
 void UIKit_ShowScreenKeyboard(_THIS, SDL_Window *window);
 void UIKit_HideScreenKeyboard(_THIS, SDL_Window *window);
