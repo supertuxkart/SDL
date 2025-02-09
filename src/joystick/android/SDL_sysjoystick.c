@@ -216,9 +216,12 @@ static void STK_JoystickScanCode(int instance_id, Uint8 state, int scancode)
 
 int Android_OnPadDown(int device_id, int keycode, int scan_code, int repeat_count)
 {
+    SDL_joylist_item *item;
+    int button;
+
     SDL_LockJoysticks();
-    SDL_joylist_item *item = JoystickByDeviceId(device_id);
-    int button = keycode_to_SDL(keycode);
+    item = JoystickByDeviceId(device_id);
+    button = keycode_to_SDL(keycode);
 
     if (item && item->joystick)
     {
@@ -244,9 +247,12 @@ int Android_OnPadDown(int device_id, int keycode, int scan_code, int repeat_coun
 
 int Android_OnPadUp(int device_id, int keycode, int scan_code)
 {
+    SDL_joylist_item *item;
+    int button;
+
     SDL_LockJoysticks();
-    SDL_joylist_item *item = JoystickByDeviceId(device_id);
-    int button = keycode_to_SDL(keycode);
+    item = JoystickByDeviceId(device_id);
+    button = keycode_to_SDL(keycode);
 
     if (item && item->joystick)
     {
