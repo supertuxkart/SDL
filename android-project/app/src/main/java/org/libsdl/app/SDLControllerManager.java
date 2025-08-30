@@ -216,11 +216,9 @@ class SDLJoystickHandler_API16 extends SDLJoystickHandler {
                     InputDevice joystickDevice = InputDevice.getDevice(device_id);
                     // DPads in joystick and arrows in keyboard get mixed up in stk, so we ignore any device name contains "keyboard"
                     // qwerty2 is found in android emulator
-                    // Android >= 13 (API 33) seems to add 'Keyboard' to gamepads so disable checking for them
-                    if (Build.VERSION.SDK_INT < 33 &&
-                        (joystickDevice.getName().contains("Keyboard") ||
+                    if (joystickDevice.getName().contains("Keyboard") ||
                         joystickDevice.getName().contains("keyboard") ||
-                        joystickDevice.getName() == "qwerty2"))
+                        joystickDevice.getName() == "qwerty2")
                         continue;
                     joystick = new SDLJoystick();
                     joystick.device_id = device_id;
