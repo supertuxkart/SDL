@@ -35,6 +35,170 @@
 #include "SDL_androidvulkan.h"
 #include "SDL_syswm.h"
 
+#ifdef __aarch64__
+#include "SDL_system.h"
+#include "adrenotools/driver.h"
+#include <dlfcn.h>
+#include <jni.h>
+#include <sys/stat.h>
+#include <android/log.h>
+
+// check existence of path
+static SDL_bool exists(const char* path)
+{
+    struct stat s;
+    return stat(path, &s) == 0 ? SDL_TRUE : SDL_FALSE;
+}
+
+/* Helper to get proc from vkGetInstanceProcAddr, falling back to dlsym on the handle */
+static void* get_proc(PFN_vkGetInstanceProcAddr gipa, VkInstance instance, void* lib, const char* name) {
+    if (gipa) {
+        void* p = (void*)gipa(instance, name);
+        if (p) return p;
+    }
+    if (lib) {
+        return dlsym(lib, name);
+    }
+    return NULL;
+}
+
+static SDL_bool driver_works(const char* driverName, void* lib)
+{
+    /* Acquire vkGetInstanceProcAddr (use dlsym) */
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
+        (PFN_vkGetInstanceProcAddr)dlsym(lib, "vkGetInstanceProcAddr");
+    if (!vkGetInstanceProcAddr) {
+        dlclose(lib);
+        return SDL_FALSE;
+    }
+
+    /* Acquire vkCreateInstance via vkGetInstanceProcAddr (or dlsym fallback) */
+    PFN_vkCreateInstance vkCreateInstance =
+        (PFN_vkCreateInstance)get_proc(vkGetInstanceProcAddr, 0, lib, "vkCreateInstance");
+    PFN_vkDestroyInstance vkDestroyInstance =
+        (PFN_vkDestroyInstance)get_proc(vkGetInstanceProcAddr, 0, lib, "vkDestroyInstance");
+    PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices =
+        (PFN_vkEnumeratePhysicalDevices)get_proc(vkGetInstanceProcAddr, 0, lib, "vkEnumeratePhysicalDevices");
+
+    if (!vkCreateInstance || !vkDestroyInstance || !vkEnumeratePhysicalDevices) {
+        dlclose(lib);
+        return SDL_FALSE;
+    }
+
+    /* Build minimal application & instance create info */
+    VkApplicationInfo app = { VK_STRUCTURE_TYPE_APPLICATION_INFO, NULL, "minapp", 1, "noengine", 1, (1<<22) /* Vulkan 1.0 */ };
+    VkInstanceCreateInfo ci = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, NULL, 0, &app, 0, NULL, 0, NULL };
+
+    VkInstance instance = 0;
+    VkResult r = vkCreateInstance(&ci, NULL, &instance);
+    if (r != VK_SUCCESS) {
+        dlclose(lib);
+        return SDL_FALSE;
+    }
+
+    /* After instance created, we may need instance-bound function pointers via vkGetInstanceProcAddr */
+    /* (We already attempted to get vkEnumeratePhysicalDevices; to be safe, fetch again providing instance) */
+    vkEnumeratePhysicalDevices = (PFN_vkEnumeratePhysicalDevices)vkGetInstanceProcAddr(instance, "vkEnumeratePhysicalDevices");
+    if (!vkEnumeratePhysicalDevices) {
+        vkDestroyInstance(instance, NULL);
+        dlclose(lib);
+        return SDL_FALSE;
+    }
+
+    uint32_t device_count = 0;
+    r = vkEnumeratePhysicalDevices(instance, &device_count, NULL);
+    if (r != VK_SUCCESS) {
+        vkDestroyInstance(instance, NULL);
+        dlclose(lib);
+        return SDL_FALSE;
+    }
+
+    vkDestroyInstance(instance, NULL);
+    if (device_count < 1) {
+        __android_log_print(ANDROID_LOG_WARN, "hook_impl", "%s has no physical devices, using built-in driver", driverName);
+        dlclose(lib);
+        return SDL_FALSE;
+    }
+    return SDL_TRUE;
+}
+
+static const char* get_custom_vulkan_driver()
+{
+    // Quick existence checks
+    if (exists("/dev/kgsl-3d0") || exists("/dev/kgsl-2d0") || exists("/dev/kgsl-3d1")) {
+        return "libvulkan_freedreno.so"; // Adreno (KGSL)
+    }
+
+    // Mali device nodes commonly named /dev/mali* (driver-dependent)
+    if (exists("/dev/mali0") || exists("/dev/mali") || exists("/dev/mali1")) {
+        return "libvulkan_panfrost.so";
+    }
+
+    // PowerVR (Imagination) often uses /dev/pvrsrvkm
+    if (exists("/dev/pvrsrvkm")) {
+        return NULL;
+    }
+    return NULL;
+}
+
+const char* CustomVulkanDriverInUse = NULL;
+const char* Android_Custom_Vulkan_Driver_In_Use()
+{
+    return CustomVulkanDriverInUse;
+}
+
+#endif
+
+void* LoadVulkanDrivers(const char *path)
+{
+    void* lib = NULL;
+#ifdef __aarch64__
+    JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
+    CustomVulkanDriverInUse = get_custom_vulkan_driver();
+    if (CustomVulkanDriverInUse != NULL) {
+        jobject activity = (jobject)SDL_AndroidGetActivity();
+        jclass clazz = (*env)->GetObjectClass(env, activity);
+        const jmethodID getApplicationContextMethod =
+            (*env)->GetMethodID(env, clazz, "getApplicationContext", "()Landroid/content/Context;");
+        const jmethodID getApplicationInfoMethod = (*env)->GetMethodID(
+            env, clazz, "getApplicationInfo", "()Landroid/content/pm/ApplicationInfo;");
+        jobject contextObject =
+            (*env)->CallObjectMethod(env, activity, getApplicationContextMethod);
+        jobject applicationInfoObject = (*env)->CallObjectMethod(env, contextObject, getApplicationInfoMethod);
+        jclass applicationInfoObjectDef = (*env)->GetObjectClass(env, applicationInfoObject);
+        const jfieldID nativeLibraryDirField =
+            (*env)->GetFieldID(env, applicationInfoObjectDef, "nativeLibraryDir", "Ljava/lang/String;");
+        jstring nativeLibraryDirJStr =
+            (jstring)(*env)->GetObjectField(env, applicationInfoObject, nativeLibraryDirField);
+        const char* nativeLibCStr = (*env)->GetStringUTFChars(env, nativeLibraryDirJStr, NULL);
+        size_t dir_len = strlen(nativeLibCStr);
+        char* dirSlash = (char*)malloc(dir_len + 2);
+        memcpy(dirSlash, nativeLibCStr, dir_len);
+        dirSlash[dir_len] = '/';
+        dirSlash[dir_len + 1] = '\0';
+        lib = adrenotools_open_libvulkan(RTLD_NOW | RTLD_LOCAL,
+            ADRENOTOOLS_DRIVER_CUSTOM, SDL_AndroidGetInternalStoragePath(),
+            nativeLibCStr, dirSlash, CustomVulkanDriverInUse, NULL, NULL);
+        free(dirSlash);
+        (*env)->ReleaseStringUTFChars(env, nativeLibraryDirJStr, nativeLibCStr);
+        (*env)->DeleteLocalRef(env, nativeLibraryDirJStr);
+        (*env)->DeleteLocalRef(env, applicationInfoObjectDef);
+        (*env)->DeleteLocalRef(env, applicationInfoObject);
+        (*env)->DeleteLocalRef(env, contextObject);
+        (*env)->DeleteLocalRef(env, clazz);
+        (*env)->DeleteLocalRef(env, activity);
+    }
+    if (!driver_works(CustomVulkanDriverInUse, lib)) {
+        CustomVulkanDriverInUse = NULL;
+        lib = NULL;
+    }
+#endif
+    if (lib != NULL) {
+        return lib;
+    }
+    return SDL_LoadObject(path);
+}
+
 int Android_Vulkan_LoadLibrary(_THIS, const char *path)
 {
     VkExtensionProperties *extensions = NULL;
@@ -53,7 +217,7 @@ int Android_Vulkan_LoadLibrary(_THIS, const char *path)
     if (!path) {
         path = "libvulkan.so";
     }
-    _this->vulkan_config.loader_handle = SDL_LoadObject(path);
+    _this->vulkan_config.loader_handle = LoadVulkanDrivers(path);
     if (!_this->vulkan_config.loader_handle) {
         return -1;
     }
